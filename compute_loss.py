@@ -62,13 +62,16 @@ def my_train(target_length,
                 else:
                     loss += criterion(decoder_output[i], y[:,i,di])
 
+            print(decoder_output[i])
+            print(8*"*")
+            print(y[:,i,di])
             if int(y[0][0][di]) == 0:
                 break
             decoder_input = y[:,:,di]
             decoder_input = decoder_input.squeeze(0)
             y = y.squeeze(0)
 
-        print(loss)
+        #print(loss)
         loss.backward()
 
         encoder_optimizer1.step()
