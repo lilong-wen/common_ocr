@@ -1,3 +1,13 @@
+# data file
+*.pkl
+20K/
+
+# model file
+model/
+
+# temp file
+tmp*
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
