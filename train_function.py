@@ -4,21 +4,21 @@ import torch
 
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
+'''
 def train(encoder, attn_decoder, train_loader, \
           batch_size, hidden_size, \
           gpu, len_train, epoch,\
           criterion, decoder_input_init, decoder_hidden_init):
+'''
+def train(encoder, attn_decoder, train_loader, criterion,\
+          decoder_input_init, decoder_hidden_init, epoch, opt):
 
-    teacher_forcing_ratio = 1
-    lr_rate = 0.0001
-    flag = 0
-    exprate = 0
 
     encoder_optimizer = torch.optim.SGD(encoder.parameters(),
-                                         lr=lr_rate,
+                                         lr=opt.lr_rate,
                                          momentum=0.9)
     decoder_optimizer = torch.optim.SGD(attn_decoder.parameters(),
-                                         lr=lr_rate,
+                                         lr=opt.lr_rate,
                                          momentum=0.9)
     running_loss=0
     whole_loss = 0
@@ -53,7 +53,7 @@ def train(encoder, attn_decoder, train_loader, \
             x_mean.append(float(torch.mean(feature_item)))
 
 
-        for i in range(batch_size):
+        for i in range(opt.batch_size):
 
             decoder_hidden_init[i] = decoder_hidden_init[i]*x_mean[i]
             decoder_hidden_init[i] = torch.tanh(decoder_hidden_init[i])
@@ -67,11 +67,11 @@ def train(encoder, attn_decoder, train_loader, \
         # current batch label length
         target_length = y_batch.size()[1]
 
-        attention_sum_init = torch.zeros(batch_size,
+        attention_sum_init = torch.zeros(opt.batch_size,
                                          1,
                                          out_feature_h,
                                          out_feature_w).to(device)
-        decoder_attention_init = torch.zeros(batch_size,
+        decoder_attention_init = torch.zeros(opt.batch_size,
                                              1,
                                              out_feature_h,
                                              out_feature_w).to(device)
@@ -87,26 +87,27 @@ def train(encoder, attn_decoder, train_loader, \
                                  out_feature_h,
                                  h_mask,
                                  w_mask,
-                                 gpu,
+                                 opt.gpu,
                                  decoder_input_init,
                                  decoder_hidden_init,
                                  attention_sum_init,
                                  decoder_attention_init,
-                                 teacher_forcing_ratio,
-                                 batch_size)
+                                 opt.teacher_forcing_ratio,
+                                 opt.batch_size)
 
 
+        exit()
         if step % 20 == 19:
-            pre = ((step+1)/len_train)*100*batch_size
+            pre = ((step+1)/opt.len_train_data)*100*opt.batch_size
             whole_loss += running_loss
-            running_loss = running_loss/(batch_size*20)
-            print(f'epoch is {epoch}, lr rate is {lr_rate:.5f}, \
-            te is {teacher_forcing_ratio:.3f}, \
-            batch_size is {batch_size}, \
+            running_loss = running_loss/(opt.batch_size*20)
+            print(f'epoch is {epoch}, lr rate is {opt.lr_rate:.5f}, \
+            te is {opt.teacher_forcing_ratio:.3f}, \
+            batch_size is {opt.batch_size}, \
             loading for {pre:.3f}%%, \
             running_loss is {running_loss:.5f}')
 
             running_loss = 0
 
-    loss_avarage = whole_loss / len_train
+    loss_avarage = whole_loss / opt.len_train
     print(f"epoch is {epoch}, the whole loss is {loss_avarage}")
