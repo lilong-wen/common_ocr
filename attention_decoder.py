@@ -48,71 +48,107 @@ class rnn_decoder(nn.Module):
                 nn.init.xavier_uniform_(m.weight)
 
 
-    def forward(self, input_a, input_hidden, encoder_outputs, \
-                feature_w, attention_sum, decoder_attention, \
+    def forward(self, input_y, input_hidden, img_feature, \
+                feature_w, attention_sum, alpha_t, \
                 feature_h, batch_size, h_mask, w_mask, gpu):
 
         '''
-        s'_t = GRU(y_t-1, s_t-1)
+        input_y:  s'_t = GRU_1(y_t-1, s_t-1) : {y_t-1}
+        input_hidden: s_t = GRU_2(s'_t, c_t) : {s_t}
+        img_feature: image featere : A
+        feature_w: feature w
+        attention_sum: c_t
+        alpha_t: c_t before MLP
+        feature_h: feature h
+        batch_size: batch size
+        h_mask:
+        w_mask:
+        gpu:
+        '''
+
+        '''
+        s'_t = GRU1(y_t-1, s_t)
         ---------------------------
         F = Q * sum(k_l) {t-1, ... L}
         e_ti = V_att * tanh(U_s * s'_t + U_a * a_i + U_f * f_i)
         a_ti = exp(e_ti) / sum(e_ti)  {1,...L}
         c_t = sum(k_ti * a_ti)
         ---------------------------
-        s_t = GRU(c_t, s'_t)
+        s_t = GRU2(c_t, s'_t)
         '''
 
+        # (b, h, w)
         et_mask = torch.zeros(batch_size,feature_h, feature_w).to(device)
 
         # set padding area to zero and non-padding area to 1
         for i in range(batch_size):
             et_mask[i][: h_mask[i], : w_mask[i]] = 1
 
+        # (b, 1, h, w)
         et_mask_4 = et_mask.unsqueeze(1)
         ## _______________________________________________________________
-        ## h1 = GRU(y, h)
+        ## st_1 = GRU(y_t-1, st)
 
-        # input_a: (b)   input_embedded: (b, 256)
-        input_embedded = self.embedding(input_a)
-        input_embedded = self.dropout(input_embedded)
+        # input_y: (b)   input_y_embedded: (b, 256)
+        input_y_embedded = self.embedding(input_y)
+        input_y_embedded = self.dropout(input_y_embedded)
         # input_hidden: (b, 1, hidden_size)
-        # print(input_hidden.size())
-        input_hidden = input_hidden.view(batch_size, self.hidden_size)
+        input_hidden = input_hidden.squeeze(1)
 
-        # input_embedded:(b, 256)  input_hidden(b, hidden_size)
-        st = self.gru1(input_embedded, input_hidden)
-        hidden1 = self.fc1(st)
-        hidden1 = hidden1.view(batch_size, 1, 1, 256)
+        '''
+        GRU  input: x_t , h_t-1
+             output: h_t
+        rt ​= σ(W_r * x_t​ + b_r​ + W_r​ * h_t−1 ​+ b_r​)
+        zt​ = σ(W_z * x_t ​+ b_z​ + W_z​ * h_t−1​ + b_z​)
+        nt​ = tanh(W_n​ * x_t​ + b_n​ + r_t ​∗ (W_n * ​h_t−1 ​+ b_n​)
+        ht​ = (1−zt​) ∗ nt​ + zt ​∗ h_t−1​​
+        '''
+
+        # input_y_embedded:(b, 256)  input_hidden(b, hidden_size)
+        st_1 = self.gru1(input_y_embedded, input_hidden)
+        st_1 = self.fc1(st_1)
+        st_1 = st_1.unsqueeze(1).unsqueeze(2)
 
         ## _____________________________________________________________
         ## F = Q * sum(k_0)
-        #encoder_outputs_trans = encoder_outputs.permute(0, 3, 1, 2)
-        encoder_outputs_trans = encoder_outputs.transpose(1, 2).transpose(2, 3)
+        #img_feature_trans = img_feature.permute(0, 3, 1, 2)
 
-        decoder_attention = self.conv1(decoder_attention)
-        attention_sum += decoder_attention
+        # the img_feature originally (b,c,h,w), changing to (b, h, w, c)
+        # channel last
+        img_feature_trans = img_feature.transpose(1, 2).transpose(2, 3)
+
+        # size(b,1,y_len,c)
+        alpha_t = self.conv1(alpha_t)
+        attention_sum += alpha_t
 
         ## _____________________________________________________________
         ## e_t = V_att * tanh(U_s * s'_t + U_a * a_i + U_f * f_i)
         #attention_sum_trans = attention_sum.permute(0, 3, 1, 2)
+        # (6,1,6,15) --> (6, 6, 15, 1)
+        # channel last
         attention_sum_trans = attention_sum.transpose(1, 2).transpose(2,3)
 
-        encoder_outputs1 = self.ua(encoder_outputs_trans)
+        img_feature1 = self.ua(img_feature_trans)
         attention_sum1 = self.uf(attention_sum_trans)
 
-        et = hidden1 + encoder_outputs1 + attention_sum1
+        print(st_1.size())
+        print(img_feature1.size())
+        print(attention_sum1.size())
+        et = st_1 + img_feature1 + attention_sum1
+        print(et.size())
+        exit()
         #et_trans = et.permute(0, 3, 1, 2)
         et_trans = et.transpose(2, 3).transpose(1, 2)
 
         et_trans = self.conv_tan(et_trans)
+        # concentrate on non-padding area
         et_trans = et_trans * et_mask_4
+
         et_trans = self.bn1(et_trans)
         et_trans = self.tanh(et_trans)
         #print(et_trans.size())
         #et_trans = et_trans.permute(0, 3, 1, 2)
         et_trans = et_trans.transpose(1,2).transpose(2,3)
-
 
         et = self.v(et_trans)
         et = et.squeeze(3)
@@ -131,18 +167,18 @@ class rnn_decoder(nn.Module):
 
         ## _____________________________________________________________
         ## c_t = sum(k_t * a_t)
-        ct = et_div_all * encoder_outputs
+        ct = et_div_all * img_feature
         ct = ct.sum(dim = 2)
         ct = ct.sum(dim = 2)
 
         ## _____________________________________________________________
         ## s_t = GRU(c_t, s'_t)
-        hidden_next_a = self.gru2(ct, st)
-        hidden_next = hidden_next_a.view(batch_size, 1, self.hidden_size)
+        st = self.gru2(ct, st_1)
+        hidden_next = st.view(batch_size, 1, self.hidden_size)
 
         # compute the output (batch,128)
-        hidden2 = self.fc2(hidden_next_a)
-        embedded2 = self.emb2(input_embedded)
+        hidden2 = self.fc2(st)
+        embedded2 = self.emb2(input_y_embedded)
         ct2 = self.wc(ct)
 
         ## _____________________________________________________________
