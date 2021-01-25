@@ -96,7 +96,6 @@ def train(encoder, attn_decoder, train_loader, criterion,\
                                  opt.batch_size)
 
 
-        exit()
         if step % 20 == 19:
             pre = ((step+1)/opt.len_train_data)*100*opt.batch_size
             whole_loss += running_loss

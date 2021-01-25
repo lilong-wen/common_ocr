@@ -52,6 +52,10 @@ class rnn_decoder(nn.Module):
                 feature_w, attention_sum, alpha_t, \
                 feature_h, batch_size, h_mask, w_mask, gpu):
 
+        # TODO
+        # set channel last for conv operation and remove all \
+        # transpose operations
+
         '''
         input_y:  s'_t = GRU_1(y_t-1, s_t-1) : {y_t-1}
         input_hidden: s_t = GRU_2(s'_t, c_t) : {s_t}
@@ -131,13 +135,10 @@ class rnn_decoder(nn.Module):
         img_feature1 = self.ua(img_feature_trans)
         attention_sum1 = self.uf(attention_sum_trans)
 
-        print(st_1.size())
-        print(img_feature1.size())
-        print(attention_sum1.size())
         et = st_1 + img_feature1 + attention_sum1
-        print(et.size())
-        exit()
-        #et_trans = et.permute(0, 3, 1, 2)
+
+        # et_trans = et.permute(0, 3, 1, 2)
+        # change back to channel first for conv
         et_trans = et.transpose(2, 3).transpose(1, 2)
 
         et_trans = self.conv_tan(et_trans)
@@ -148,6 +149,7 @@ class rnn_decoder(nn.Module):
         et_trans = self.tanh(et_trans)
         #print(et_trans.size())
         #et_trans = et_trans.permute(0, 3, 1, 2)
+        # change back to channel last for linear operation
         et_trans = et_trans.transpose(1,2).transpose(2,3)
 
         et = self.v(et_trans)
@@ -173,7 +175,9 @@ class rnn_decoder(nn.Module):
 
         ## _____________________________________________________________
         ## s_t = GRU(c_t, s'_t)
+        st_1 = st_1.squeeze(1).squeeze(1)
         st = self.gru2(ct, st_1)
+
         hidden_next = st.view(batch_size, 1, self.hidden_size)
 
         # compute the output (batch,128)
