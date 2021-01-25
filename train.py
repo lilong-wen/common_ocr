@@ -25,8 +25,8 @@ from custom_collate_fn import collate_fn
 from train_function import train
 from test_function import test
 
-datasets=['./train.pkl','./20K/train.txt', './20K/formulas.txt']
-valid_datasets=['./test.pkl', './20K/test.txt', './20K/formulas.txt']
+datasets=['./train_tmp.pkl','./20K/train_tmp.txt', './20K/formulas.txt']
+valid_datasets=['./test_tmp.pkl', './20K/test_tmp.txt', './20K/formulas.txt']
 dictionaries=['./dictionary.txt']
 
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
@@ -34,7 +34,7 @@ CUDA_AVALIABLE = True if torch.cuda.is_available() else False
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('--batch_size', default=6, help='batch_size')
+    parser.add_argument('--batch_size', default=16, help='batch_size')
     parser.add_argument('--epoches', default=1, help='epoches')
     parser.add_argument('--teacher_forcing_ratio', default=1, help='teacher forcing ratio')
     parser.add_argument('--gpu', default=[0], help='gpu num list')
@@ -45,6 +45,7 @@ if __name__ == '__main__':
     parser.add_argument('--maxImagesize', default=100000, help='maxImagesize')
     parser.add_argument('--hidden_size', default=256, help='hidden size')
     parser.add_argument('--len_train_data', default=0, help='len_train_data')
+    parser.add_argument('--len_test_data', default=0, help='len_test_data')
 
     opt = parser.parse_args()
 
@@ -71,7 +72,8 @@ if __name__ == '__main__':
         datasets[2],
         worddicts,
         maxlen=opt.maxlen,
-        maxImagesize=opt.maxImagesize)
+        maxImagesize=opt.maxImagesize,
+        batch_size=opt.batch_size)
 
     test_dataset, test_label = dataIterator(
         valid_datasets[0],
@@ -79,10 +81,14 @@ if __name__ == '__main__':
         valid_datasets[2],
         worddicts,
         maxlen=opt.maxlen,
-        maxImagesize=opt.maxImagesize)
+        maxImagesize=opt.maxImagesize,
+        batch_size=opt.batch_size)
 
     len_train_data = len(train_dataset)
     opt.len_train_data = len_train_data
+
+    len_test_data = len(test_dataset)
+    opt.len_test_data = len_test_data
 
     image_train_dataset = custom_dataset(train_dataset, train_label)
     image_test_dataset = custom_dataset(test_dataset, test_label)
@@ -119,10 +125,6 @@ if __name__ == '__main__':
         attn_decoder = torch.nn.DataParallel(attn_decoder, device_ids=opt.gpu)
 
     criterion = nn.NLLLoss()
-    # 220 == dict_len - 1
-    decoder_input_init = torch.LongTensor([220]*opt.batch_size).to(device)
-    decoder_hidden_init = torch.randn(opt.batch_size, 1, opt.hidden_size).to(device)
-    nn.init.xavier_uniform_(decoder_hidden_init)
 
     epoches = 1
     for epoch in range(epoches):
@@ -132,5 +134,5 @@ if __name__ == '__main__':
               decoder_input_init, decoder_hidden_init)
         '''
         train(encoder, attn_decoder, train_loader, criterion, \
-              decoder_input_init, decoder_hidden_init, epoch, opt)
-        test(encoder, attn_decoder, test_loader, batch_size, device)
+              epoch, opt)
+        test(encoder, attn_decoder, test_loader, opt, device)

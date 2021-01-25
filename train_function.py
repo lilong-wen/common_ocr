@@ -11,7 +11,8 @@ def train(encoder, attn_decoder, train_loader, \
           criterion, decoder_input_init, decoder_hidden_init):
 '''
 def train(encoder, attn_decoder, train_loader, criterion,\
-          decoder_input_init, decoder_hidden_init, epoch, opt):
+          epoch, opt):
+
 
 
     encoder_optimizer = torch.optim.SGD(encoder.parameters(),
@@ -47,14 +48,19 @@ def train(encoder, attn_decoder, train_loader, criterion,\
 
         # size b 1024 h/16 w/16
         output_feature = encoder(x_batch)
+        #print(output_feature.size())
 
         x_mean = []
 
         for feature_item in output_feature:
             x_mean.append(float(torch.mean(feature_item)))
 
+        # 220 == dict_len - 1
+        decoder_input_init = torch.LongTensor([220] * len(x_mean)).to(device)
+        decoder_hidden_init = torch.randn(len(x_mean), 1, opt.hidden_size).to(device)
+        nn.init.xavier_uniform_(decoder_hidden_init)
 
-        for i in range(opt.batch_size):
+        for i in range(len(x_mean)):
 
             decoder_hidden_init[i] = decoder_hidden_init[i]*x_mean[i]
             decoder_hidden_init[i] = torch.tanh(decoder_hidden_init[i])
@@ -108,5 +114,5 @@ def train(encoder, attn_decoder, train_loader, criterion,\
 
             running_loss = 0
 
-    loss_avarage = whole_loss / opt.len_train
+    loss_avarage = whole_loss / opt.len_train_data
     print(f"epoch is {epoch}, the whole loss is {loss_avarage}")

@@ -1,6 +1,8 @@
+import torch
+import torch.nn as nn
 from utils import cmp_result
 
-def test(encoder, attn_decoder1, test_loader, batch_size, device):
+def test(encoder, attn_decoder1, test_loader, opt, device):
     # this is the prediction and compute wer loss
     total_dist = 0
     total_label = 0
@@ -10,14 +12,14 @@ def test(encoder, attn_decoder1, test_loader, batch_size, device):
 
     encoder.eval()
     attn_decoder1.eval()
-    print('Now, begin testing!!')
+    print('begin testing')
 
     for step_t, (x_t, y_t) in enumerate(test_loader):
         x_real_high = x_t.size()[2]
         x_real_width = x_t.size()[3]
-        if x_t.size()[0]<batch_size:
+        if x_t.size()[0]<opt.batch_size:
             break
-        print('testing for %.3f%%'%(step_t*100*batch_size/len_test),end='\r')
+        print('testing for %.3f%%'%(step_t*100*opt.batch_size/opt.len_test_data),end='\r')
         h_mask_t = []
         w_mask_t = []
         for i in x_t:
@@ -42,9 +44,9 @@ def test(encoder, attn_decoder1, test_loader, batch_size, device):
         output_area_t = output_area_t1[3]
         dense_input = output_area_t1[2]
 
-        decoder_input_t = torch.LongTensor([111]*batch_size)
+        decoder_input_t = torch.LongTensor([220]*opt.batch_size)
         decoder_input_t = decoder_input_t.cuda()
-        decoder_hidden_t = torch.randn(batch_size, 1, hidden_size).cuda()
+        decoder_hidden_t = torch.randn(opt.batch_size, 1, opt.hidden_size).cuda()
         nn.init.xavier_uniform_(decoder_hidden_t)
 
         x_mean_t=[]
@@ -52,21 +54,21 @@ def test(encoder, attn_decoder1, test_loader, batch_size, device):
             x_mean_t.append(float(torch.mean(i)))
         # x_mean = torch.mean(output_highfeature)
         # x_mean = float(x_mean)
-        for i in range(batch_size):
+        for i in range(opt.batch_size):
             decoder_hidden_t[i] = decoder_hidden_t[i]*x_mean_t[i]
             decoder_hidden_t[i] = torch.tanh(decoder_hidden_t[i])
 
-        prediction = torch.zeros(batch_size,maxlen)
-        #label = torch.zeros(batch_size,maxlen)
+        prediction = torch.zeros(opt.batch_size,opt.maxlen)
+        #label = torch.zeros(batch_size,opt.maxlen)
         prediction_sub = []
         label_sub = []
-        decoder_attention_t = torch.zeros(batch_size,1,dense_input,output_area_t).cuda()
-        attention_sum_t = torch.zeros(batch_size,1,dense_input,output_area_t).cuda()
-        flag_z_t = [0]*batch_size
+        decoder_attention_t = torch.zeros(opt.batch_size,1,dense_input,output_area_t).cuda()
+        attention_sum_t = torch.zeros(opt.batch_size,1,dense_input,output_area_t).cuda()
+        flag_z_t = [0]*opt.batch_size
         loss_t = 0
-        m = torch.nn.ZeroPad2d((0,maxlen-y_t.size()[1],0,0))
+        m = torch.nn.ZeroPad2d((0,opt.maxlen-y_t.size()[1],0,0))
         y_t = m(y_t)
-        for i in range(maxlen):
+        for i in range(opt.maxlen):
             decoder_output, \
                 decoder_hidden_t, \
                 decoder_attention_t, \
@@ -77,10 +79,10 @@ def test(encoder, attn_decoder1, test_loader, batch_size, device):
                                                 attention_sum_t,
                                                 decoder_attention_t,
                                                 dense_input,
-                                                batch_size,
+                                                opt.batch_size,
                                                 h_mask_t,
                                                 w_mask_t,
-                                                gpu)
+                                                opt.gpu)
 
             ### you can see the attention when testing
 
@@ -104,18 +106,18 @@ def test(encoder, attn_decoder1, test_loader, batch_size, device):
             if torch.sum(topi)==0:
                 break
             decoder_input_t = topi
-            decoder_input_t = decoder_input_t.view(batch_size)
+            decoder_input_t = decoder_input_t.view(opt.batch_size)
 
             # prediction
             prediction[:,i] = decoder_input_t
 
-        for i in range(batch_size):
-            for j in range(maxlen):
+        for i in range(opt.batch_size):
+            for j in range(opt.maxlen):
                 if int(prediction[i][j]) ==0:
                     break
                 else:
                     prediction_sub.append(int(prediction[i][j]))
-            if len(prediction_sub)<maxlen:
+            if len(prediction_sub)<opt.maxlen:
                 prediction_sub.append(0)
 
             for k in range(y_t.size()[1]):
@@ -141,23 +143,23 @@ def test(encoder, attn_decoder1, test_loader, batch_size, device):
     print('wer is %.5f' % (wer))
     print('sacc is %.5f ' % (sacc))
     # print('whole loss is %.5f'%(whole_loss_t/925))
-    # with open("training_data/wer_%.5f_pre_GN_te05_d02_all.txt" % (lr_rate), "a") as f:
+    # with open("training_data/wer_%.5f_pre_GN_te05_d02_all.txt" % (opt.lr_rate), "a") as f:
     #     f.write("%s\n" % (str(wer)))
 
-    if (sacc > exprate):
-        exprate = sacc
-        print(exprate)
+    if (sacc > opt.exprate):
+        opt.exprate = sacc
+        print(opt.exprate)
         print("saving the model....")
-        print('encoder_lr%.5f_GN_te1_d05_SGD_bs6_mask_conv_bn_b_xavier.pkl' %(lr_rate))
-        torch.save(encoder.state_dict(), 'model/encoder_lr%.5f_GN_te1_d05_SGD_bs6_mask_conv_bn_b_xavier.pkl'%(lr_rate))
-        torch.save(attn_decoder1.state_dict(), 'model/attn_decoder_lr%.5f_GN_te1_d05_SGD_bs6_mask_conv_bn_b_xavier.pkl'%(lr_rate))
+        print('encoder_lr%.5f_GN_te1_d05_SGD_bs6_mask_conv_bn_b_xavier.pkl' %(opt.lr_rate))
+        torch.save(encoder.state_dict(), 'model/encoder_lr%.5f_GN_te1_d05_SGD_bs6_mask_conv_bn_b_xavier.pkl'%(opt.lr_rate))
+        torch.save(attn_decoder1.state_dict(), 'model/attn_decoder_lr%.5f_GN_te1_d05_SGD_bs6_mask_conv_bn_b_xavier.pkl'%(opt.lr_rate))
         print("done")
-        flag = 0
+        op.flag = 0
     else:
-        flag = flag+1
-        print('the best is %f' % (exprate))
+        opt.flag = opt.flag+1
+        print('the best is %f' % (opt.exprate))
         print('the loss is bigger than before,so do not save the model')
 
-    if flag == 10:
-        lr_rate = lr_rate*0.1
-        flag = 0
+    if opt.flag == 10:
+        opt.lr_rate = opt.lr_rate*0.1
+        opt.flag = 0

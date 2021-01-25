@@ -21,11 +21,11 @@ if __name__ == '__main__':
     checkout_file = './20K/formulas.txt'
 
     if args.value == 'train':
-        label_file = './20K/train.txt'
-        output_file = './train.pkl'
+        label_file = './20K/train_tmp.txt'
+        output_file = './train_tmp.pkl'
     elif args.value == 'test':
-        label_file = './20K/test.txt'
-        output_file = './test.pkl'
+        label_file = './20K/test_tmp.txt'
+        output_file = './test_tmp.pkl'
     else:
         label_file = './20K/val.txt'
         output_file = './val.pkl'

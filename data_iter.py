@@ -9,7 +9,8 @@ def dataIterator(feature_file,
                  checkout_file,
                  dictionary,
                  maxlen,
-                 maxImagesize):
+                 maxImagesize,
+                 batch_size):
 
     with open(feature_file, 'rb') as fp:
         features = pkl.load(fp)
@@ -77,6 +78,7 @@ def dataIterator(feature_file,
             feature_total.append(fea)
             label_total.append(lab)
 
+    feature_total = feature_total[: -(len(feature_total) % batch_size)]
     len_ignore = len_label - len(feature_total)
     print('total ',len(feature_total), ' data loaded')
     print('ignore',len_ignore,'images')
