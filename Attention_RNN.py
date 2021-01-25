@@ -136,6 +136,8 @@ class AttnDecoderRNN(nn.Module):
         # output = F.log_softmax(self.out(hidden2+embedded2+ct2), dim=1)
         output = F.log_softmax(self.out(self.dropout(hidden2+embedded2+ct2)), dim=1)
         output = output.unsqueeze(1)
+        print(output.size())
+        exit()
 
         return output, hidden_next, et_div_all, attention_sum
 
