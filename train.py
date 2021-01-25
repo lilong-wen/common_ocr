@@ -10,6 +10,7 @@ import json
 
 #from Densenet_torchvision import densenet121
 from encoder import densenet121_encoder
+# from Attention_RNN import AttnDecoderRNN as rnn_decoder
 from attention_decoder import rnn_decoder
 
 import random
@@ -28,17 +29,15 @@ datasets=['./train.pkl','./20K/train.txt', './20K/formulas.txt']
 valid_datasets=['./test.pkl', './20K/test.txt', './20K/formulas.txt']
 dictionaries=['./dictionary.txt']
 
-# device = 'cuda' if torch.cuda.is_available() else 'cpu'
-# CUDA_AVALIABLE = True if torch.cuda.is_available() else False
-device = 'cpu'
-CUDA_AVALIABLE = False
+device = 'cuda' if torch.cuda.is_available() else 'cpu'
+CUDA_AVALIABLE = True if torch.cuda.is_available() else False
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--batch_size', default=6, help='batch_size')
     parser.add_argument('--epoches', default=1, help='epoches')
     parser.add_argument('--teacher_forcing_ratio', default=1, help='teacher forcing ratio')
-    parser.add_argument('--gpu', default=[6], help='gpu num list')
+    parser.add_argument('--gpu', default=[0], help='gpu num list')
     parser.add_argument('--lr_rate', default=0.0001, help='learning rate')
     parser.add_argument('--flag', default=0, help='flag to remember when to change the learning rate')
     parser.add_argument('--exprate', default=0, help='exprate')

@@ -24,8 +24,8 @@ def train(encoder, attn_decoder, train_loader, criterion,\
     whole_loss = 0
 
     #encoder.train(mode=True)
-    encoder.train(mode=False)
-    attn_decoder.train(mode=True)
+    encoder.train(mode=True)
+    attn_decoder.train(mode=False)
 
     for step,(x_batch,y_batch) in enumerate(train_loader):
 
@@ -47,6 +47,7 @@ def train(encoder, attn_decoder, train_loader, criterion,\
 
         # size b 1024 h/16 w/16
         output_feature = encoder(x_batch)
+
         x_mean = []
 
         for feature_item in output_feature:
@@ -94,7 +95,6 @@ def train(encoder, attn_decoder, train_loader, criterion,\
                                  decoder_attention_init,
                                  opt.teacher_forcing_ratio,
                                  opt.batch_size)
-
 
         if step % 20 == 19:
             pre = ((step+1)/opt.len_train_data)*100*opt.batch_size

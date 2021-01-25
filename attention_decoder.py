@@ -52,6 +52,7 @@ class rnn_decoder(nn.Module):
                 feature_w, attention_sum, alpha_t, \
                 feature_h, batch_size, h_mask, w_mask, gpu):
 
+        # print(attention_sum)
         # TODO
         # set channel last for conv operation and remove all \
         # transpose operations
@@ -188,10 +189,14 @@ class rnn_decoder(nn.Module):
         ## _____________________________________________________________
         ## y_t = sum(all_previous input and output)
         et_next =  hidden2 + embedded2 + ct2
+
         et_next_drop = self.dropout(et_next)
         output = F.log_softmax(self.out(et_next_drop), dim = 1)
 
         output = output.unsqueeze(1)
+        # print(output)
+        # print(output.size())
+        # exit()
 
         return output, hidden_next, et_div_all, attention_sum
 
