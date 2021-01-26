@@ -19,7 +19,8 @@ def test(encoder, attn_decoder1, test_loader, opt, device):
         x_real_width = x_t.size()[3]
         if x_t.size()[0]<opt.batch_size:
             break
-        print('testing for %.3f%%'%(step_t*100*opt.batch_size/opt.len_test_data),end='\r')
+        loading_per = step_t * 100 * opt.batch_size / opt.len_test_data
+        print(f'testing for {loading_per:.3f}%', end='\r')
         h_mask_t = []
         w_mask_t = []
         for i in x_t:
@@ -40,34 +41,38 @@ def test(encoder, attn_decoder1, test_loader, opt, device):
 
         x_mean_t = torch.mean(output_highfeature_t)
         x_mean_t = float(x_mean_t)
-        output_area_t1 = output_highfeature_t.size()
-        output_area_t = output_area_t1[3]
-        dense_input = output_area_t1[2]
+        output_size = output_highfeature_t.size()
+        output_feater_w = output_size[3]
+        output_feature_h = output_size[2]
 
-        decoder_input_t = torch.LongTensor([220]*opt.batch_size)
-        decoder_input_t = decoder_input_t.cuda()
-        decoder_hidden_t = torch.randn(opt.batch_size, 1, opt.hidden_size).cuda()
+        decoder_input_t = torch.LongTensor([220]*opt.batch_size).to(device)
+        decoder_hidden_t = torch.randn(opt.batch_size, 1, opt.hidden_size).to(device)
         nn.init.xavier_uniform_(decoder_hidden_t)
 
         x_mean_t=[]
         for i in output_highfeature_t:
             x_mean_t.append(float(torch.mean(i)))
-        # x_mean = torch.mean(output_highfeature)
-        # x_mean = float(x_mean)
+
         for i in range(opt.batch_size):
             decoder_hidden_t[i] = decoder_hidden_t[i]*x_mean_t[i]
             decoder_hidden_t[i] = torch.tanh(decoder_hidden_t[i])
 
-        prediction = torch.zeros(opt.batch_size,opt.maxlen)
-        #label = torch.zeros(batch_size,opt.maxlen)
+        prediction = torch.zeros(opt.batch_size, opt.maxlen)
+
         prediction_sub = []
         label_sub = []
-        decoder_attention_t = torch.zeros(opt.batch_size,1,dense_input,output_area_t).cuda()
-        attention_sum_t = torch.zeros(opt.batch_size,1,dense_input,output_area_t).cuda()
-        flag_z_t = [0]*opt.batch_size
+        decoder_attention_t = torch.zeros(opt.batch_size,1,\
+                                          output_feature_h,\
+                                          output_feater_w).cuda()
+        attention_sum_t = torch.zeros(opt.batch_size,1,\
+                                      output_feature_h,\
+                                      output_feater_w).cuda()
+
+        flag_z_t = [0] * opt.batch_size
         loss_t = 0
-        m = torch.nn.ZeroPad2d((0,opt.maxlen-y_t.size()[1],0,0))
-        y_t = m(y_t)
+        padding_op = torch.nn.ZeroPad2d((0, opt.maxlen-y_t.size()[1], 0, 0))
+        y_t = padding_op(y_t)
+
         for i in range(opt.maxlen):
             decoder_output, \
                 decoder_hidden_t, \
@@ -75,10 +80,10 @@ def test(encoder, attn_decoder1, test_loader, opt, device):
                 attention_sum_t = attn_decoder1(decoder_input_t,
                                                 decoder_hidden_t,
                                                 output_highfeature_t,
-                                                output_area_t,
+                                                output_feater_w,
                                                 attention_sum_t,
                                                 decoder_attention_t,
-                                                dense_input,
+                                                output_feature_h,
                                                 opt.batch_size,
                                                 h_mask_t,
                                                 w_mask_t,
@@ -99,7 +104,7 @@ def test(encoder, attn_decoder1, test_loader, opt, device):
             #     plt.imshow(show_x, interpolation='nearest', cmap='gray_r')
             #     plt.show()
 
-            topv,topi = torch.max(decoder_output,2)
+            topv, topi = torch.max(decoder_output, 2)
             # if torch.sum(y_t[0,:,i])==0:
             #     y_t = y_t.squeeze(0)
             #     break
@@ -117,11 +122,11 @@ def test(encoder, attn_decoder1, test_loader, opt, device):
                     break
                 else:
                     prediction_sub.append(int(prediction[i][j]))
-            if len(prediction_sub)<opt.maxlen:
+            if len(prediction_sub) < opt.maxlen:
                 prediction_sub.append(0)
 
             for k in range(y_t.size()[1]):
-                if int(y_t[i][k]) ==0:
+                if int(y_t[i][k]) == 0:
                     break
                 else:
                     label_sub.append(int(y_t[i][k]))
@@ -150,16 +155,16 @@ def test(encoder, attn_decoder1, test_loader, opt, device):
         opt.exprate = sacc
         print(opt.exprate)
         print("saving the model....")
-        print('encoder_lr%.5f_GN_te1_d05_SGD_bs6_mask_conv_bn_b_xavier.pkl' %(opt.lr_rate))
+        print(f'encoder_lr{opt.lr_rate:.5f}_GN_te1_d05_SGD_bs6_mask_conv_bn_b_xavier.pkl')
         torch.save(encoder.state_dict(), 'model/encoder_lr%.5f_GN_te1_d05_SGD_bs6_mask_conv_bn_b_xavier.pkl'%(opt.lr_rate))
         torch.save(attn_decoder1.state_dict(), 'model/attn_decoder_lr%.5f_GN_te1_d05_SGD_bs6_mask_conv_bn_b_xavier.pkl'%(opt.lr_rate))
         print("done")
-        op.flag = 0
+        opt.flag = 0
     else:
         opt.flag = opt.flag+1
         print('the best is %f' % (opt.exprate))
         print('the loss is bigger than before,so do not save the model')
 
     if opt.flag == 10:
-        opt.lr_rate = opt.lr_rate*0.1
+        opt.lr_rate = opt.lr_rate * 0.1
         opt.flag = 0

@@ -82,6 +82,7 @@ def train(encoder, attn_decoder, train_loader, criterion,\
                                              1,
                                              out_feature_h,
                                              out_feature_w).to(device)
+        print(len(h_mask))
 
         running_loss += my_train(target_length,
                                  attn_decoder,
@@ -109,7 +110,7 @@ def train(encoder, attn_decoder, train_loader, criterion,\
             print(f'epoch is {epoch}, lr rate is {opt.lr_rate:.5f}, \
             te is {opt.teacher_forcing_ratio:.3f}, \
             batch_size is {opt.batch_size}, \
-            loading for {pre:.3f}%%, \
+            loading for {pre:.3f}%, \
             running_loss is {running_loss:.5f}')
 
             running_loss = 0

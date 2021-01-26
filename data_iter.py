@@ -78,7 +78,9 @@ def dataIterator(feature_file,
             feature_total.append(fea)
             label_total.append(lab)
 
-    feature_total = feature_total[: -(len(feature_total) % batch_size)]
+    print(len(feature_total))
+    if len(feature_total) % batch_size != 0:
+        feature_total = feature_total[: -(len(feature_total) % batch_size)]
     len_ignore = len_label - len(feature_total)
     print('total ',len(feature_total), ' data loaded')
     print('ignore',len_ignore,'images')
